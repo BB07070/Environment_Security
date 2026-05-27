@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>AI Smart Home | Live Camera Feed</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            color: #f1f5f9;
+            padding: 24px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .logo h1 {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #a855f7, #06b6d4);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .logo p {
+            font-size: 13px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        .badge {
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(8px);
+            padding: 8px 18px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 500;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Cards */
+        .card {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .card-header {
+            padding: 20px 24px 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .card-body {
+            padding: 20px 24px 24px 24px;
+        }
+
+        /* KPI Grid */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 18px;
+            margin-bottom: 24px;
+        }
+
+        .kpi-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border-radius: 24px;
+            padding: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(168, 85, 247, 0.5);
+        }
+
+        .kpi-title {
+            font-size: 13px;
+            color: #94a3b8;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .kpi-value {
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .kpi-unit {
+            font-size: 14px;
+            font-weight: 400;
+            color: #94a3b8;
+        }
+
+        /* Video Feed */
+        .video-container {
+            background: #000000;
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+            aspect-ratio: 16/9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .video-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-placeholder {
+            text-align: center;
+            color: #64748b;
+        }
+
+        .video-placeholder i {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .camera-controls {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+        /* ESP32 Config */
+        .esp-config {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .esp-input {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 10px 16px;
+            border-radius: 40px;
+            color: white;
+            font-family: monospace;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .green { background: #10b981; box-shadow: 0 0 6px #10b981; }
+        .red { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+        .yellow { background: #f59e0b; }
+        
+        .activity-meter {
+            background: #0f172a;
+            border-radius: 60px;
+            height: 8px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        
+        .activity-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+            border-radius: 60px;
+        }
+
+        .event-list {
+            list-style: none;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .event-item {
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        .event-time {
+            color: #64748b;
+            font-size: 11px;
+            margin-left: auto;
+        }
+
+        .alert-banner {
+            background: linear-gradient(95deg, #7f1a1a, #991b1b);
+            border-radius: 18px;
+            padding: 14px 20px;
+            margin-bottom: 22px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            border-left: 5px solid #ef4444;
+            animation: pulseRed 1.5s infinite;
+        }
+
+        @keyframes pulseRed {
+            0% { opacity: 0.85; }
+            50% { opacity: 1; background: linear-gradient(95deg, #991b1b, #b91c1c);}
+            100% { opacity: 0.85; }
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 28px;
+            font-size: 11px;
+            color: #475569;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <div class="logo">
+            <h1><i class="fas fa-microchip"></i> AI Smart Home Monitor</h1>
+            <p>YOLOv8 · Real-time Human Detection · Pushbullet Notifications</p>
+        </div>
+        <div class="badge">
+            <i class="fas fa-circle" style="color: #10b981;"></i> SYSTEM ACTIVE
+        </div>
+    </div>
+
+    <!-- Anomaly Banner -->
+    <div id="anomalyBanner" style="display: none;" class="alert-banner">
+        <i class="fas fa-exclamation-triangle" style="font-size: 26px;"></i>
+        <div>
+            <strong style="font-size: 17px;">⚠️ HEAT RISK ANOMALY DETECTED</strong><br>
+            Cause: <span id="anomalyCause">High activity level detected</span>
+        </div>
+        <i class="fas fa-bell" style="margin-left: auto; font-size: 22px;"></i>
+    </div>
+
+    <!-- KPI Grid -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-title"><i class="fas fa-users"></i> Human Presence</div>
+            <div class="kpi-value"><span id="humanCount">0</span><span class="kpi-unit"> persons</span></div>
+            <div id="humanStatus" style="color: #ef4444;">● NO HUMAN</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title"><i class="fas fa-running"></i> Activity Level</div>
+            <div class="kpi-value" id="activityValue">0.000</div>
+            <div id="activityLabel" style="font-size: 12px;">No activity</div>
+            <div class="activity-meter">
+                <div class="activity-fill" id="activityFill" style="width: 0%; background: #10b981;"></div>
+            </div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title"><i class="fas fa-plug"></i> Appliances</div>
+            <div class="kpi-value" id="applianceStatus">🔴 OFF</div>
+            <div style="font-size: 11px;">ESP32 controlled</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title"><i class="fas fa-bell"></i> Notifications</div>
+            <div class="kpi-value"><i class="fas fa-check-circle" style="color: #10b981;"></i></div>
+            <div>Pushbullet Active</div>
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="main-grid">
+        <!-- Camera Feed Card -->
+        <div class="card">
+            <div class="card-header">
+                <span><i class="fas fa-video"></i> Live Camera Feed</span>
+                <span id="cameraStatus" style="font-size: 12px; background: #ef444430; padding: 4px 12px; border-radius: 30px;">⭕ Stopped</span>
+            </div>
+            <div class="card-body">
+                <div class="video-container" id="videoContainer">
+                    <img id="videoFeed" class="video-feed" src="" alt="Camera feed will appear here" style="display: none;">
+                    <div id="videoPlaceholder" class="video-placeholder">
+                        <i class="fas fa-camera"></i>
+                        <p>Camera not started</p>
+                        <p style="font-size: 12px;">Click "Start Camera" below</p>
+                    </div>
+                </div>
+                <div class="camera-controls">
+                    <button id="startCameraBtn" class="btn btn-primary" onclick="startCamera()">
+                        <i class="fas fa-play"></i> Start Camera
+                    </button>
+                    <button id="stopCameraBtn" class="btn btn-danger" onclick="stopCamera()" style="display: none;">
+                        <i class="fas fa-stop"></i> Stop Camera
+                    </button>
+                </div>
+                <div style="margin-top: 12px; font-size: 11px; color: #64748b; text-align: center;">
+                    <i class="fas fa-info-circle"></i> YOLO draws green boxes around detected people
+                </div>
+            </div>
+        </div>
+
+        <!-- ESP32 Config Card with Notification Test Button -->
+        <div class="card">
+            <div class="card-header">
+                <span><i class="fas fa-microchip"></i> ESP32 & Notifications</span>
+                <i class="fas fa-wifi"></i>
+            </div>
+            <div class="card-body">
+                <div class="esp-config">
+                    <input type="text" id="espIpInput" class="esp-input" placeholder="192.168.1.100" value="192.168.1.100">
+                    <button class="btn btn-success" onclick="setESP32IP()">
+                        <i class="fas fa-save"></i> Set IP
+                    </button>
+                    <button class="btn btn-warning" onclick="testESP32()">
+                        <i class="fas fa-plug"></i> Test
+                    </button>
+                </div>
+                <div style="margin-top: 16px; padding: 12px; background: #0f172a; border-radius: 16px;">
+                    <span class="status-badge" id="espStatusBadge" style="background: #64748b;"></span>
+                    <strong>ESP32 Status:</strong> <span id="espStatus">Not configured</span>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 8px;">
+                        <i class="fas fa-info-circle"></i> Commands: <code>/ON</code> and <code>/OFF</code>
+                    </div>
+                </div>
+                
+                <!-- Pushbullet Test Button -->
+                <div style="margin-top: 16px; padding: 12px; background: #0f172a; border-radius: 16px;">
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <i class="fas fa-bell" style="font-size: 24px; color: #f59e0b;"></i>
+                        <div style="flex: 1;">
+                            <strong>Pushbullet Notifications</strong><br>
+                            <span style="font-size: 11px; color: #64748b;">Get alerts on your phone when anomalies occur</span>
+                        </div>
+                        <button class="btn btn-warning" onclick="testNotification()">
+                            <i class="fas fa-paper-plane"></i> Test Alert
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event Log Card -->
+    <div class="card">
+        <div class="card-header">
+            <span><i class="fas fa-list-ul"></i> Live Event Log</span>
+            <i class="fas fa-bell" style="color: #f97316;"></i>
+        </div>
+        <div class="card-body">
+            <ul class="event-list" id="eventLog">
+                <li class="event-item"><i class="fas fa-play"></i> <span>Dashboard loaded · Ready to start</span><span class="event-time">now</span></li>
+                <li class="event-item"><i class="fas fa-bell"></i> <span>Pushbullet notifications active</span><span class="event-time">now</span></li>
+                <li class="event-item"><i class="fas fa-info-circle"></i> <span>Click "Start Camera" to begin detection</span><span class="event-time">now</span></li>
+            </ul>
+        </div>
+    </div>
+
+    <footer>
+        <i class="fas fa-charging-station"></i> AI Smart Home | YOLOv8 + Pushbullet | Energy Conservation System
+    </footer>
+</div>
+
+<script>
+    const socket = io();
+    let anomalyActive = false;
+    let cameraActive = false;
+
+    socket.on('connect', () => {
+        console.log('Connected to server');
+        addLogEntry('Connected to AI server');
+    });
+
+    socket.on('state_update', (data) => {
+        updateUI(data);
+        
+        // Check anomaly (high activity)
+        if (data.activity_level > 0.045 && data.person_count > 0) {
+            if (!anomalyActive) {
+                showAnomaly(`High activity: ${data.activity_level.toFixed(3)} - Vigorous movement detected!`);
+                addLogEntry(`⚠️ ANOMALY: ${data.activity_label} - Check your phone!`, true);
+            }
+            anomalyActive = true;
+        } else if (data.activity_level < 0.03) {
+            anomalyActive = false;
+            document.getElementById('anomalyBanner').style.display = 'none';
+        }
+    });
+
+    function updateUI(data) {
+        document.getElementById('humanCount').innerHTML = data.person_count || 0;
+        document.getElementById('activityValue').innerHTML = (data.activity_level || 0).toFixed(4);
+        document.getElementById('activityLabel').innerHTML = data.activity_label || "No person";
+        
+        const activityPercent = Math.min(100, (data.activity_level / 0.08) * 100);
+        const fillBar = document.getElementById('activityFill');
+        fillBar.style.width = activityPercent + '%';
+        
+        if (data.activity_level > 0.045) {
+            fillBar.style.background = '#ef4444';
+        } else if (data.activity_level > 0.02) {
+            fillBar.style.background = '#f59e0b';
+        } else {
+            fillBar.style.background = '#10b981';
+        }
+        
+        const humanStatus = document.getElementById('humanStatus');
+        if (data.person_count > 0) {
+            humanStatus.innerHTML = '● HUMAN PRESENT';
+            humanStatus.style.color = '#10b981';
+        } else {
+            humanStatus.innerHTML = '● NO HUMAN';
+            humanStatus.style.color = '#ef4444';
+        }
+        
+        const applianceDiv = document.getElementById('applianceStatus');
+        if (data.human_detected) {
+            applianceDiv.innerHTML = '🟢 ON (Human detected)';
+        } else {
+            applianceDiv.innerHTML = '🔴 OFF (No human)';
+        }
+        
+        if (data.camera_running) {
+            document.getElementById('cameraStatus').innerHTML = '🟢 LIVE';
+            document.getElementById('cameraStatus').style.background = '#10b98130';
+        }
+        
+        if (data.esp_connected) {
+            document.getElementById('espStatusBadge').style.background = '#10b981';
+            document.getElementById('espStatus').innerHTML = `Connected to ${data.esp_ip}`;
+        } else {
+            document.getElementById('espStatusBadge').style.background = '#64748b';
+            document.getElementById('espStatus').innerHTML = data.esp_ip ? `Ready (${data.esp_ip})` : 'No IP configured';
+        }
+    }
+
+    function startCamera() {
+        const videoFeed = document.getElementById('videoFeed');
+        const placeholder = document.getElementById('videoPlaceholder');
+        
+        videoFeed.src = '/video_feed';
+        videoFeed.style.display = 'block';
+        placeholder.style.display = 'none';
+        
+        cameraActive = true;
+        document.getElementById('startCameraBtn').style.display = 'none';
+        document.getElementById('stopCameraBtn').style.display = 'inline-block';
+        document.getElementById('cameraStatus').innerHTML = '🟢 LIVE';
+        document.getElementById('cameraStatus').style.background = '#10b98130';
+        
+        addLogEntry('📹 Camera started - YOLO detection active');
+        
+        videoFeed.onerror = function() {
+            addLogEntry('❌ Failed to access camera. Make sure camera is connected.', true);
+            stopCamera();
+        };
+    }
+
+    function stopCamera() {
+        const videoFeed = document.getElementById('videoFeed');
+        const placeholder = document.getElementById('videoPlaceholder');
+        
+        videoFeed.src = '';
+        videoFeed.style.display = 'none';
+        placeholder.style.display = 'flex';
+        
+        cameraActive = false;
+        document.getElementById('startCameraBtn').style.display = 'inline-block';
+        document.getElementById('stopCameraBtn').style.display = 'none';
+        document.getElementById('cameraStatus').innerHTML = '⭕ Stopped';
+        document.getElementById('cameraStatus').style.background = '#ef444430';
+        
+        addLogEntry('📹 Camera stopped');
+        fetch('/api/stop_camera');
+    }
+
+    async function setESP32IP() {
+        const ip = document.getElementById('espIpInput').value;
+        const response = await fetch('/api/set_esp_ip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ip: ip })
+        });
+        const data = await response.json();
+        if (data.success) {
+            addLogEntry(`📡 ESP32 IP set to ${ip}`);
+        }
+    }
+
+    async function testESP32() {
+        addLogEntry('🔍 Testing ESP32 connection...');
+        const response = await fetch('/api/test_esp');
+        const data = await response.json();
+        if (data.connected) {
+            addLogEntry(`✅ ${data.message}`);
+            document.getElementById('espStatusBadge').style.background = '#10b981';
+            document.getElementById('espStatus').innerHTML = `Connected to ${data.ip}`;
+        } else {
+            addLogEntry(`❌ ${data.message}`, true);
+            document.getElementById('espStatusBadge').style.background = '#ef4444';
+        }
+    }
+
+    async function testNotification() {
+        addLogEntry('📱 Sending test notification to your phone...');
+        const response = await fetch('/api/test_notification');
+        const data = await response.json();
+        if (data.success) {
+            addLogEntry('✅ Test notification sent! Check your phone.', false);
+            alert('✅ Test notification sent!\nCheck your phone to verify Pushbullet is working.');
+        } else {
+            addLogEntry('❌ Failed to send test notification. Check API key in app.py', true);
+            alert('❌ Failed to send notification.\nMake sure:\n1. API key is set in app.py\n2. Pushbullet app is installed on phone\n3. You\'re logged into same account');
+        }
+    }
+
+    function showAnomaly(cause) {
+        const banner = document.getElementById('anomalyBanner');
+        document.getElementById('anomalyCause').innerHTML = cause;
+        banner.style.display = 'flex';
+        setTimeout(() => {
+            banner.style.display = 'none';
+        }, 8000);
+    }
+
+    function addLogEntry(message, isAlert = false) {
+        const logList = document.getElementById('eventLog');
+        const newItem = document.createElement('li');
+        newItem.className = 'event-item';
+        newItem.innerHTML = `<i class="fas ${isAlert ? 'fa-exclamation-triangle' : 'fa-circle-info'}" style="color: ${isAlert ? '#ef4444' : '#64748b'}"></i>
+                             <span style="${isAlert ? 'color: #ef4444;' : ''}">${message}</span>
+                             <span class="event-time">${new Date().toLocaleTimeString()}</span>`;
+        logList.prepend(newItem);
+        if (logList.children.length > 15) {
+            logList.removeChild(logList.lastElementChild);
+        }
+    }
+
+    addLogEntry('Dashboard ready · Pushbullet notifications active');
+    addLogEntry('Click "Test Alert" to verify phone notifications');
+</script>
+</body>
+</html>
